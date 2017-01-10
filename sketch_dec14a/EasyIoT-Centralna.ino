@@ -73,6 +73,7 @@ OLEDDisplayUi   ui( &display );
 #define ONE_WIRE_BUS 4  // DS18B20 on arduino pin4 corresponds to D2 on physical board
 OneWire oneWire(ONE_WIRE_BUS);
 DallasTemperature DS18B20(&oneWire);
+float temp = 0;
 float prevTemp = 0;
 int sent = 0;
 
@@ -98,7 +99,7 @@ void updateData(OLEDDisplay *display);
 void drawDateTime(OLEDDisplay *display, OLEDDisplayUiState* state, int16_t x, int16_t y);
 void drawCurrentWeather(OLEDDisplay *display, OLEDDisplayUiState* state, int16_t x, int16_t y);
 void drawForecast(OLEDDisplay *display, OLEDDisplayUiState* state, int16_t x, int16_t y);
-void drawThingspeak(OLEDDisplay *display, OLEDDisplayUiState* state, int16_t x, int16_t y);
+void drawTemperature(OLEDDisplay *display, OLEDDisplayUiState* state, int16_t x, int16_t y);
 void drawForecastDetails(OLEDDisplay *display, int x, int y, int dayIndex);
 void drawHeaderOverlay(OLEDDisplay *display, OLEDDisplayUiState* state);
 void setReadyForWeatherUpdate();
@@ -107,8 +108,7 @@ void setReadyForWeatherUpdate();
 // Add frames
 // this array keeps function pointers to all frames
 // frames are the single views that slide from right to left
-FrameCallback frames[] = { drawDateTime, drawCurrentWeather, drawForecast, drawThingspeak };
-//FrameCallback frames[] = { drawDateTime, drawCurrentWeather, drawForecast };
+FrameCallback frames[] = { drawDateTime, drawCurrentWeather, drawForecast, drawTemperature };
 int numberOfFrames = 4;
 
 OverlayCallback overlays[] = { drawHeaderOverlay };
@@ -186,15 +186,7 @@ void loop() {
     // You can do some work here
     // Don't do stuff if you are below your
     // time budget.
-    float temp;
-    
-    do {
-      DS18B20.requestTemperatures(); 
-      temp = DS18B20.getTempCByIndex(0);
-      Serial.print("Temperature: ");
-      Serial.println(temp);
-    } while (temp == 85.0 || temp == (-127.0));
-  
+    getIndorTemp();
     delay(remainingTimeBudget);
   }
 }
@@ -215,12 +207,19 @@ void updateData(OLEDDisplay *display) {
   wunderground.updateConditions(WUNDERGRROUND_API_KEY, WUNDERGRROUND_LANGUAGE, WUNDERGROUND_COUNTRY, WUNDERGROUND_CITY);
   drawProgress(display, 50, "Updating forecasts...");
   wunderground.updateForecast(WUNDERGRROUND_API_KEY, WUNDERGRROUND_LANGUAGE, WUNDERGROUND_COUNTRY, WUNDERGROUND_CITY);
-  drawProgress(display, 80, "Updating thingspeak...");
-  //thingspeak.getLastChannelItem(THINGSPEAK_CHANNEL_ID, THINGSPEAK_API_READ_KEY);
+  drawProgress(display, 80, "Updating temperature...");
+  getIndorTemp();
   lastUpdate = timeClient.getFormattedTime();
   readyForWeatherUpdate = false;
   drawProgress(display, 100, "Done...");
   delay(1000);
+}
+
+void getIndorTemp() {
+  DS18B20.requestTemperatures(); 
+  temp = DS18B20.getTempCByIndex(0);
+  //Serial.print("Temperature: ");
+  //Serial.println(temp);
 }
 
 void drawDateTime(OLEDDisplay *display, OLEDDisplayUiState* state, int16_t x, int16_t y) {
@@ -258,14 +257,13 @@ void drawForecast(OLEDDisplay *display, OLEDDisplayUiState* state, int16_t x, in
   drawForecastDetails(display, x + 88, y, 4);
 }
 
-//void drawThingspeak(OLEDDisplay *display, OLEDDisplayUiState* state, int16_t x, int16_t y) {
-//  display->setTextAlignment(TEXT_ALIGN_CENTER);
-//  display->setFont(ArialMT_Plain_10);
-//  display->drawString(64 + x, 0 + y, "Outdoor");
-//  display->setFont(ArialMT_Plain_16);
-//  display->drawString(64 + x, 10 + y, thingspeak.getFieldValue(0) + "°C");
-//  display->drawString(64 + x, 30 + y, thingspeak.getFieldValue(1) + "%");
-//}
+void drawTemperature(OLEDDisplay *display, OLEDDisplayUiState* state, int16_t x, int16_t y) {
+  display->setTextAlignment(TEXT_ALIGN_CENTER);
+  display->setFont(ArialMT_Plain_10);
+  display->drawString(64 + x, 0 + y, "Indoor");
+  display->setFont(ArialMT_Plain_16);
+  display->drawString(64 + x, 10 + y, String(temp) + "°C");
+}
 
 void drawForecastDetails(OLEDDisplay *display, int x, int y, int dayIndex) {
   display->setTextAlignment(TEXT_ALIGN_CENTER);
